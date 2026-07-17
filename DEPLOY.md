@@ -5,9 +5,10 @@ A complete, production-ready STATIC website for "NBI Strategy" (nbistrategy.com)
 Pure HTML/CSS/JS — NO build step, NO framework, NO server-side code, NO dependencies.
 
 ## Contents
-- index.html, services.html, about.html, insights.html, contact.html
+- index.html, assessment.html, services.html, about.html, insights.html, contact.html
+- sitemap.xml, robots.txt
 - assets/css/style.css        (all styling)
-- assets/js/main.js           (animations + form handler)
+- assets/js/main.js           (animations + form handler + assessment quiz)
 - assets/img/nbi-mark-dark.png, assets/img/nbi-logo-full.png (logo artwork)
 
 ## How to deploy

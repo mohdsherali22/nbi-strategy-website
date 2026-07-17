@@ -355,6 +355,224 @@
     });
   });
 
+  /* ---- AI Automation Readiness assessment wizard ---- */
+  const wizard = document.getElementById("wizard");
+  if (wizard) {
+    const steps = Array.from(wizard.querySelectorAll(".wiz-step"));
+    const bar = document.getElementById("wizBar");
+    const countEl = document.getElementById("wizCount");
+    const backBtn = document.getElementById("wizBack");
+    const resultEl = document.getElementById("wizResult");
+    const answers = {};
+    const earned = {};
+    let cur = 0;
+
+    const SEGMENTS = {
+      starter: {
+        title: "Starter Automation Package",
+        desc: "Your highest-leverage move is speed: automate the single workflow eating the most hours, prove the win, then expand. That is exactly what the Starter Automation Package does — one workflow, end to end, shipped in days.",
+        bullets: [
+          "One workflow mapped, built and launched end to end",
+          "Connected to the tools you already use",
+          "Handover video, documentation and two weeks of fixes",
+        ],
+        cta: "Book my scoping call",
+        href: "contact.html",
+      },
+      sprint: {
+        title: "AI Workflow Sprint",
+        desc: "With a team in the loop, one-off automations leak value at the handoffs. The AI Workflow Sprint rebuilds a whole process around AI — intake to reporting — in two to three weeks, with your team trained on the result.",
+        bullets: [
+          "Process audit and automation map for one team",
+          "Two to three connected automations or an assistant",
+          "Team training, rollout support and a 30-day optimization window",
+        ],
+        cta: "Book my sprint scoping call",
+        href: "contact.html",
+      },
+      audit: {
+        title: "AI Audit + 90-Day Roadmap",
+        desc: "At your size, the risk isn't missing AI — it's automating the wrong things first. The AI Audit maps every workflow and tool across the company, scores each opportunity by effort and impact, and hands you a 90-day roadmap before you spend on builds.",
+        bullets: [
+          "Company-wide workflow and tooling audit",
+          "Prioritized opportunity map with effort/impact scores",
+          "90-day implementation roadmap, each item quoted separately",
+        ],
+        cta: "Book my audit consultation",
+        href: "contact.html",
+      },
+      growth: {
+        title: "Growth Engine",
+        desc: "Your bottleneck isn't inside the business — it's the pipeline. The Growth Engine runs SEO & AEO, content and cold outreach as one monthly system, so you get found in Google, cited by AI assistants and booked by qualified buyers.",
+        bullets: [
+          "SEO & AEO: visibility in Google and AI assistants",
+          "Content drafted with AI, finished by humans",
+          "Cold outreach with automated follow-ups and booked meetings",
+        ],
+        cta: "Book my growth consultation",
+        href: "contact.html",
+      },
+      software: {
+        title: "Software Scoping Consult",
+        desc: "You've outgrown your tools — the fix is a platform built around how you actually work. Whether that's an ERP, a SaaS product or a serious website, we scope it into fixed milestones with a capped quote before any build starts.",
+        bullets: [
+          "Scoping call: processes, users and systems mapped",
+          "Fixed proposal — modules, milestones, capped quote",
+          "Shipped AI-ready: assistants and automations plug straight in",
+        ],
+        cta: "Book my software consult",
+        href: "contact.html",
+      },
+    };
+
+    function stepMax(step) {
+      const cap = step.querySelector("[data-w-cap]");
+      if (cap) return parseInt(cap.dataset.wCap, 10);
+      let m = 0;
+      step.querySelectorAll(".wiz-opt").forEach((o) => {
+        m = Math.max(m, parseInt(o.dataset.w || "0", 10));
+      });
+      return m;
+    }
+
+    function show(idx) {
+      cur = idx;
+      steps.forEach((st, i) => { st.hidden = i !== idx; });
+      bar.style.width = ((idx / steps.length) * 100) + "%";
+      countEl.textContent = "Question " + (idx + 1) + " of " + steps.length;
+      backBtn.hidden = idx === 0;
+      wizard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function segmentFor() {
+      if (answers.bottleneck === "leads") return "growth";
+      if (answers.bottleneck === "software") return "software";
+      if (answers.repetitive_task === "marketing") return "growth";
+      const size = answers.company_size;
+      if (size === "51-200" || size === "200+") return "audit";
+      if (size === "11-50") return "sprint";
+      if (size === "2-10" && answers.role === "manager") return "sprint";
+      return "starter";
+    }
+
+    function finish() {
+      let total = 0, max = 0;
+      steps.forEach((st) => { max += stepMax(st); total += earned[st.dataset.key] || 0; });
+      const score = Math.max(1, Math.min(100, Math.round((total / max) * 100)));
+      const seg = segmentFor();
+      const S = SEGMENTS[seg];
+
+      steps.forEach((st) => { st.hidden = true; });
+      backBtn.hidden = true;
+      bar.style.width = "100%";
+      countEl.textContent = "Your result";
+      resultEl.hidden = false;
+
+      document.getElementById("resTitle").textContent = S.title;
+      document.getElementById("resDesc").textContent = S.desc;
+      const list = document.getElementById("resList");
+      list.innerHTML = "";
+      S.bullets.forEach((b) => {
+        const li = document.createElement("li");
+        li.textContent = b;
+        list.appendChild(li);
+      });
+      const cta = document.getElementById("resCta");
+      cta.textContent = S.cta;
+      cta.href = S.href;
+
+      const dial = document.getElementById("scoreDial");
+      const num = document.getElementById("scoreNum");
+      const t0 = performance.now();
+      (function tick(now) {
+        const p = Math.min(1, (now - t0) / 1200);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const v = Math.round(score * eased);
+        dial.style.setProperty("--score", v);
+        num.textContent = v;
+        if (p < 1) requestAnimationFrame(tick);
+      })(t0);
+
+      const payload = Object.assign({}, answers, {
+        form: "assessment",
+        score: score,
+        segment: seg,
+        recommendation: S.title,
+        source: "website",
+        page: "assessment.html",
+      });
+      try {
+        fetch(LEAD_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        }).catch(() => {});
+      } catch (e) { /* never block the visitor */ }
+      wizard.dataset.payload = JSON.stringify(payload);
+      wizard.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    steps.forEach((step) => {
+      const key = step.dataset.key;
+      const multi = step.dataset.type === "multi";
+      step.querySelectorAll(".wiz-opt").forEach((optBtn) => {
+        optBtn.addEventListener("click", () => {
+          const w = parseInt(optBtn.dataset.w || "0", 10);
+          if (multi) {
+            optBtn.classList.toggle("sel");
+            const picked = Array.from(step.querySelectorAll(".wiz-opt.sel"));
+            answers[key] = picked.map((o) => o.dataset.value).join(",");
+            const cap = stepMax(step);
+            earned[key] = Math.min(cap, picked.reduce((a, o) => a + parseInt(o.dataset.w || "0", 10), 0));
+          } else {
+            step.querySelectorAll(".wiz-opt").forEach((o) => o.classList.remove("sel"));
+            optBtn.classList.add("sel");
+            answers[key] = optBtn.dataset.value;
+            earned[key] = w;
+            if (cur === steps.length - 1) finish(); else show(cur + 1);
+          }
+        });
+      });
+      const next = step.querySelector(".wiz-next");
+      if (next) next.addEventListener("click", () => {
+        if (!(key in answers)) { answers[key] = ""; earned[key] = 0; }
+        if (cur === steps.length - 1) finish(); else show(cur + 1);
+      });
+    });
+
+    backBtn.addEventListener("click", () => { if (cur > 0) show(cur - 1); });
+
+    const restart = document.getElementById("wizRestart");
+    if (restart) restart.addEventListener("click", () => {
+      Object.keys(answers).forEach((k) => delete answers[k]);
+      Object.keys(earned).forEach((k) => delete earned[k]);
+      wizard.querySelectorAll(".wiz-opt.sel").forEach((o) => o.classList.remove("sel"));
+      resultEl.hidden = true;
+      show(0);
+    });
+
+    const reportForm = document.getElementById("wizReportForm");
+    if (reportForm) reportForm.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const base = JSON.parse(wizard.dataset.payload || "{}");
+      const data = Object.assign(base, Object.fromEntries(new FormData(reportForm).entries()));
+      data.form = "assessment-report";
+      try {
+        fetch(LEAD_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+          keepalive: true,
+        }).catch(() => {});
+      } catch (e) { /* never block the visitor */ }
+      const success = reportForm.querySelector(".form-success");
+      if (success) success.classList.add("show");
+    });
+
+    show(0);
+  }
+
   /* Footer year */
   document.querySelectorAll("[data-year]").forEach((el) => {
     el.textContent = new Date().getFullYear();
